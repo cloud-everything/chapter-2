@@ -58,7 +58,7 @@ catch(err){
 
 
 const signupControllerHelper=async(firstname,lastname,email,password)=>{
-if(!firstname ){
+if(!firstname){
     throw new Error("Firstname is required")
 }
 if(!lastname){
