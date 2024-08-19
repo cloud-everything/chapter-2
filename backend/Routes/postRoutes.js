@@ -8,10 +8,8 @@ const storage = multer.memoryStorage()
 const upload = multer({ storage: storage })
 
 
-
-
-postsRouter.get("/:id",postController.getPosts)
+postsRouter.get("/",postController.getPosts)
 postsRouter.post("/",upload.single('image'), postController.createAPost)
-postsRouter.delete("/:id",postController.deleteAPost)
+postsRouter.delete("/",postController.deleteAPost)
 
 module.exports = postsRouter;
