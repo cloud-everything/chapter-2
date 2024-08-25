@@ -9,7 +9,7 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.INTEGER,
       },
-      userid:{
+      userId:{
         type: Sequelize.INTEGER,
         references:{
           key: 'id',
@@ -17,9 +17,6 @@ module.exports = {
         }
       },  
       imagename: {
-        type: Sequelize.STRING
-      },
-      imageUrl: {
         type: Sequelize.STRING
       },
       caption: {

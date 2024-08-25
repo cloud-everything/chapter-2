@@ -1,9 +1,9 @@
 const db=require("../models/index")
-const { S3Client, PutObjectCommand,GetObjectCommand } = require("@aws-sdk/client-s3");
+const { S3Client, PutObjectCommand,GetObjectCommand,DeleteObjectCommand } = require("@aws-sdk/client-s3");
 require("dotenv").config()
 const {getSignedUrl} = require("@aws-sdk/s3-request-presigner")
 const CryptoJS = require("crypto-js");
-
+const sharp = require('sharp');
 
 const S3_ACCESS_KEY=process.env.S3_ACCESS_KEY
 const S3_SECRET_ACCESS_KEY=process.env.S3_SECRET_ACCESS_KEY
@@ -16,63 +16,89 @@ const s3Client = new S3Client({
       accessKeyId: S3_ACCESS_KEY,
       secretAccessKey: S3_SECRET_ACCESS_KEY,
     },
-  });
+});
   
+async function resizeImage(imageBuffer,height,width) {
+    try {
+        const resizedImageBuffer = await sharp(imageBuffer)
+            .resize({width, height,fit:"contain"})
+            .toBuffer();
+        return resizedImageBuffer;
+    } catch (error) {
+        throw error;
+    }
+}
+
 const createAPost=async(req,res)=>
 {
     try{
-        
         const random32BitString = CryptoJS.lib.WordArray.random(16).toString(CryptoJS.enc.Hex);
-        console.log(random32BitString)
-        const params = {
-            Bucket: S3_BUCKET_NAME, // The name of your S3 bucket
-            Key: random32BitString, // The key for the object being uploaded (e.g., 'folder/file.txt')
-            Body: req.file.buffer, // The content of the object (can be a string, Buffer, or ReadableStream)
-            ContentType: req.file.mimetype, // The MIME type of the object being uploaded (optional)
-          };
+        const resizedImageBuffer = await resizeImage(req.file.buffer,  1920,1080);
 
+        const params = {
+            Bucket: S3_BUCKET_NAME, 
+            Key: random32BitString, 
+            Body: resizedImageBuffer, 
+            ContentType: req.file.mimetype, 
+          };
+          const {caption}=req.body 
           const command = new PutObjectCommand(params);
           const response = await s3Client.send(command);
            if(response.$metadata.httpStatusCode===200){
+            const post=await db.Post.create({userId:req.user.id,imagename:random32BitString,caption:caption,likes:0})
             res.status(200).json({message:"create a post"})
-
            }
            else{
             res.status(400).json({message:"server is down"})
-
            }
     }
     catch(err){
-        console.log(err)
         res.status(500).json("something went wrong with server response")
     }
 }
 
 
 
-const getPosts=async(req,res)=>{
-try{
-    const params = {
-        Bucket: S3_BUCKET_NAME,
-        Key: req.body.image,
-      };
-      const command = new GetObjectCommand(params);
-      const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-      console.log(url)
-      
 
-      res.status(200).json({message:"ger request succeeded"})
+const getPosts=async(req,res)=>{
+try{      
+    const allposts=await db.Post.findAll({userId:req.user.id})
+    if(allposts.length===0){
+    res.status(404).json({message:"no posts not found"});
+    return;
+    }
+    for(let i=0;i<allposts.length;i++){
+        const params = {
+            Bucket: S3_BUCKET_NAME,
+            Key: allposts[i].imagename,
+        };
+        const command = new GetObjectCommand(params);
+        const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+        allposts[i].dataValues.imageurl=url;
+    }
+    res.status(200).json(allposts)
 }
 catch(err){
-    console.log(err)
-    res.status(500).json("something went wrong with server response")
+    res.status(500).json("could not get any post due to server error")
 }
 }
+
+
+
 
 
 const deleteAPost=async(req,res)=>{
     try{
-        res.status(200).json({message:"create a post"})
+        console.log(req.user.id,req.params.id)
+
+        const post=await db.Post.findOne({userId:req.user.id,id:req.params.id})
+        console.log(post)
+        var params = {  Bucket: S3_BUCKET_NAME, Key: post.dataValues.imagename };
+        const command=new DeleteObjectCommand(params);
+        const response = await s3Client.send(command);
+        
+        await db.Post.destroy({where:{userId:req.user.id,id:req.params.id}})
+        res.status(200).json({message:"post deleted successfully"})
 
     }
     catch(err){

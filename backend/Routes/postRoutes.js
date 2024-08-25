@@ -10,6 +10,6 @@ const upload = multer({ storage: storage })
 
 postsRouter.get("/",postController.getPosts)
 postsRouter.post("/",upload.single('image'), postController.createAPost)
-postsRouter.delete("/",postController.deleteAPost)
+postsRouter.delete("/:id",postController.deleteAPost)
 
 module.exports = postsRouter;
