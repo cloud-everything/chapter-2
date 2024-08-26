@@ -33,8 +33,8 @@ const createAPost=async(req,res)=>
 {
     try{
         const random32BitString = CryptoJS.lib.WordArray.random(16).toString(CryptoJS.enc.Hex);
+        console.log(req.file)
         const resizedImageBuffer = await resizeImage(req.file.buffer,  1920,1080);
-
         const params = {
             Bucket: S3_BUCKET_NAME, 
             Key: random32BitString, 
@@ -53,6 +53,7 @@ const createAPost=async(req,res)=>
            }
     }
     catch(err){
+        console.log(err)
         res.status(500).json("something went wrong with server response")
     }
 }
